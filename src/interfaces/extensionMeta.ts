@@ -293,6 +293,7 @@ export interface ExtensionStub {
   dashboards?: { path: string }[];
   snmp?: SnmpGroup[];
   wmi?: WmiGroup[];
+  jmx?: JMXGroup[];
   prometheus?: DatasourceGroup[];
   sqlMySql?: DatasourceGroup[];
   sqlDb2?: DatasourceGroup[];

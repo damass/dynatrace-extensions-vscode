@@ -15,6 +15,7 @@
  */
 
 import * as vscode from "vscode";
+import { JMXActionProvider } from "./codeActions/jmx";
 import { PrometheusActionProvider } from "./codeActions/prometheus";
 import { SnippetGenerator } from "./codeActions/snippetGenerator";
 import { SnmpActionProvider } from "./codeActions/snmp";
@@ -25,6 +26,7 @@ import { PrometheusCompletionProvider } from "./codeCompletions/prometheus";
 import { ScreensMetaCompletionProvider } from "./codeCompletions/screensMeta";
 import { TopologyCompletionProvider } from "./codeCompletions/topology";
 import { WmiCompletionProvider } from "./codeCompletions/wmi";
+import { JMXCodeLensProvider } from "./codeLens/jmxScraper";
 import { PrometheusCodeLensProvider } from "./codeLens/prometheusScraper";
 import { ScreenLensProvider } from "./codeLens/screenCodeLens";
 import { SelectorCodeLensProvider } from "./codeLens/selectorCodeLens";
@@ -618,7 +620,9 @@ export async function activate(context: vscode.ExtensionContext) {
   );
   const snippetCodeActionProvider = new SnippetGenerator();
   const screensLensProvider = new ScreenLensProvider(tenantsTreeViewProvider);
+  const JMXLensProvider = new JMXCodeLensProvider(cachedData);
   const prometheusLensProvider = new PrometheusCodeLensProvider(cachedData);
+  const jmxActionProvider = new JMXActionProvider();
   const prometheusActionProvider = new PrometheusActionProvider();
   const snmpActionProvider = new SnmpActionProvider(cachedData);
   const wmiLensProvider = new WmiCodeLensProvider(cachedData);
@@ -640,7 +644,9 @@ export async function activate(context: vscode.ExtensionContext) {
       metricLensProvider,
       entityLensProvider,
       prometheusActionProvider,
+      jmxActionProvider,
     ],
+    jmxData: [JMXLensProvider, jmxActionProvider],
     prometheusData: [prometheusLensProvider, prometheusActionProvider],
     snmpData: [snmpActionProvider, diagnosticsProvider, snmpHoverProvider],
     selectorStatuses: [metricLensProvider, entityLensProvider],
@@ -695,6 +701,8 @@ export async function activate(context: vscode.ExtensionContext) {
     connectionStatusManager.getStatusBarItem(),
     // FastMode Status Bar Item
     fastModeStatus.getStatusBarItem(),
+    // Code Lens for JMX Scraping
+    vscode.languages.registerCodeLensProvider(extension2selector, JMXLensProvider),
     // Code Lens for Prometheus scraping
     vscode.languages.registerCodeLensProvider(extension2selector, prometheusLensProvider),
     // Code Lens for metric and entity selectors

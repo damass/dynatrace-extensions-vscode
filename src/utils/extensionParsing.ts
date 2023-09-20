@@ -505,6 +505,86 @@ export function getPrometheusLabelKeys(
 }
 
 /**
+ * Gets all the Prometheus label keys that have been already inserted in the datasource section
+ * of the YAML in a given group/subgroup location. Specify the group and subgroup by index.
+ * The group index is mandatory if subgroup labels should be returned as one includes the other.
+ * @param extension extension.yaml serialized as object
+ * @param groupIdx the index of the group where labels should be extracted from
+ * @param subgroupIdx the index of the subgroup where labels should be extracted from
+ * @returns list of (prometheus) label keys
+ */
+export function getJMXMetricKeys(
+  extension: ExtensionStub,
+  groupIdx: number = -2,
+  subgroupIdx: number = -2,
+): string[] {
+  const metricKeys: string[] = [];
+  if (groupIdx !== -2) {
+    // Metrics at group level
+    const group = extension.jmx?.[groupIdx];
+    if (group?.metrics && group.metrics.length > 0) {
+      metricKeys.push(
+        ...group.metrics
+          .filter(metric => metric.value.startsWith("metric:"))
+          .map(metric => metric.value.split("metric:")[1]),
+      );
+    }
+    if (subgroupIdx !== -2) {
+      // Metrics at subgroup level
+      const subgroup = group?.subgroups?.[subgroupIdx];
+      if (subgroup?.metrics && subgroup.metrics.length > 0) {
+        metricKeys.push(
+          ...subgroup.metrics
+            .filter(metric => metric.value.startsWith("metric:"))
+            .map(metric => metric.value.split("metric:")[1]),
+        );
+      }
+    }
+  }
+  return metricKeys;
+}
+
+/**
+ * Gets all the Prometheus label keys that have been already inserted in the datasource section
+ * of the YAML in a given group/subgroup location. Specify the group and subgroup by index.
+ * The group index is mandatory if subgroup labels should be returned as one includes the other.
+ * @param extension extension.yaml serialized as object
+ * @param groupIdx the index of the group where labels should be extracted from
+ * @param subgroupIdx the index of the subgroup where labels should be extracted from
+ * @returns list of (prometheus) label keys
+ */
+export function getJMXLabelKeys(
+  extension: ExtensionStub,
+  groupIdx: number = -2,
+  subgroupIdx: number = -2,
+): string[] {
+  const labelKeys: string[] = [];
+  if (groupIdx !== -2) {
+    // Dimensions at group level
+    const group = extension.jmx?.[groupIdx];
+    if (group?.dimensions && group.dimensions.length > 0) {
+      labelKeys.push(
+        ...group.dimensions
+          .filter(dimension => dimension.value.startsWith("label:"))
+          .map(dimension => dimension.value.split("label:")[1]),
+      );
+    }
+    if (subgroupIdx !== -2) {
+      // Dimensions at subgroup level
+      const subgroup = group?.subgroups?.[subgroupIdx];
+      if (subgroup?.dimensions && subgroup.dimensions.length > 0) {
+        labelKeys.push(
+          ...subgroup.dimensions
+            .filter(dimension => dimension.value.startsWith("label:"))
+            .map(dimension => dimension.value.split("label:")[1]),
+        );
+      }
+    }
+  }
+  return labelKeys;
+}
+
+/**
  * Iterates through the datasource group and subgroup metrics to extract the value given
  * a specific metric key.
  * @param metricKey metric key to extract the value for
