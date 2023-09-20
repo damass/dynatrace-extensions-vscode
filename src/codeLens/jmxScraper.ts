@@ -228,7 +228,7 @@ export class JMXCodeLensProvider extends CachedDataProducer implements vscode.Co
           switch (this.jmxAuth) {
             case "No authentication":
               await axios.get(this.jmxUrl).then(res => {
-                this.processJMXData(res.data as string);
+                this.processJMXData(res.data as unknown);
               });
               return true;
             case "Username & password":
@@ -240,7 +240,7 @@ export class JMXCodeLensProvider extends CachedDataProducer implements vscode.Co
                   auth: { username: this.jmxUsername, password: this.jmxPassword },
                 })
                 .then(res => {
-                  this.processJMXData(res.data as string);
+                  this.processJMXData(res.data as unknown);
                 });
               return true;
             default:
@@ -259,57 +259,23 @@ export class JMXCodeLensProvider extends CachedDataProducer implements vscode.Co
    * in other parts of the VSCode extension.
    * @param data raw data from a JMX Endpoint
    */
-  private processJMXData(data: string) {
+  private processJMXData(data: unknown) {
     const scrapedMetrics: JMXData = {};
-    console.log(data);
+    const keys = Object.keys(data);
+    for (const i of keys) {
+      if (i == "jmxData") {
+        const jmxData = data[i] as unknown;
+        const domains = Object.keys(jmxData);
+        for (const d of domains) {
+          const domainData = jmxData[d] as unknown;
+          const mBeanData = Object.keys(domainData);
+          for (const mbean of mBeanData) {
+            console.log(mbean);
+          }
+        }
+      }
+    }
 
-    // data
-    //   .trim()
-    //   .split("\n")
-    //   .forEach(line => {
-    //     // # HELP defines description of a metric
-    //     if (line.startsWith("# HELP")) {
-    //       const key = line.split("# HELP ")[1].split(" ")[0];
-    //       const description = line.split(`${key} `)[1];
-    //       if (!(key in scrapedMetrics)) {
-    //         scrapedMetrics[key] = {} as JMXDetails;
-    //       }
-    //       scrapedMetrics[key].description = description;
-    //       // # TYPE defines type of a metric
-    //     } else if (line.startsWith("# TYPE")) {
-    //       const key = line.split("# TYPE ")[1].split(" ")[0];
-    //       let type = line.split(`${key} `)[1];
-    //       if (type === "counter") {
-    //         type = "count";
-    //       }
-    //       if (!(key in scrapedMetrics)) {
-    //         scrapedMetrics[key] = {} as JMXDetails;
-    //       }
-    //       scrapedMetrics[key].type = type;
-    //       // Any other line contains dimensions and the value
-    //     } else {
-    //       const [key, dimensionsStr] = line.split(line.includes("{") ? "{" : " ");
-    //       if (!(key in scrapedMetrics)) {
-    //         scrapedMetrics[key] = {} as JMXDetails;
-    //       }
-    //       // make sure lines without dimensions have the correct keys
-    //       // if line includes dimensions, find them
-    //       if (dimensionsStr.includes("}")) {
-    //         const dimensions = dimensionsStr.slice(0, dimensionsStr.length - 1);
-    //         dimensions.split(",").forEach(dimension => {
-    //           if (dimension.includes("=")) {
-    //             if (!("dimensions" in scrapedMetrics[key])) {
-    //               scrapedMetrics[key].dimensions = [];
-    //             }
-    //             const dKey = dimension.split("=")[0];
-    //             if (!scrapedMetrics[key].dimensions?.includes(dKey)) {
-    //               scrapedMetrics[key].dimensions?.push(dKey);
-    //             }
-    //           }
-    //         });
-    //       }
-    //     }
-    //   });
     // this.cachedData.setJMXData(scrapedMetrics);
   }
 }
