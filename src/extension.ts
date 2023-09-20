@@ -620,7 +620,7 @@ export async function activate(context: vscode.ExtensionContext) {
   );
   const snippetCodeActionProvider = new SnippetGenerator();
   const screensLensProvider = new ScreenLensProvider(tenantsTreeViewProvider);
-  const JMXLensProvider = new JMXCodeLensProvider(cachedData);
+  const JMXLensProvider = new JMXCodeLensProvider(cachedData, tenantsTreeViewProvider);
   const prometheusLensProvider = new PrometheusCodeLensProvider(cachedData);
   const jmxActionProvider = new JMXActionProvider();
   const prometheusActionProvider = new PrometheusActionProvider();

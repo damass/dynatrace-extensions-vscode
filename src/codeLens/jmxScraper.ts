@@ -16,6 +16,7 @@
 
 import axios from "axios";
 import * as vscode from "vscode";
+import { EnvironmentsTreeDataProvider } from "../treeViews/environmentsTreeView";
 import { showMessage } from "../utils/code";
 import { CachedData, CachedDataProducer } from "../utils/dataCaching";
 
@@ -42,14 +43,16 @@ export class JMXCodeLensProvider extends CachedDataProducer implements vscode.Co
   private jmxToken: string | undefined;
   private jmxUsername: string | undefined;
   private jmxPassword: string | undefined;
+  private tenantsTreeViewProvider: EnvironmentsTreeDataProvider | undefined;
   private _onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
   public readonly onDidChangeCodeLenses: vscode.Event<void> = this._onDidChangeCodeLenses.event;
 
   /**
    * @param cachedDataProvider provider of cacheable data
    */
-  constructor(cachedData: CachedData) {
+  constructor(cachedData: CachedData, tenantsTreeViewProvider: EnvironmentsTreeDataProvider) {
     super(cachedData);
+    this.tenantsTreeViewProvider = tenantsTreeViewProvider;
     this.codeLenses = [];
     this.regex = /^(jmx:)/gm;
     vscode.commands.registerCommand(
@@ -268,9 +271,13 @@ export class JMXCodeLensProvider extends CachedDataProducer implements vscode.Co
         const domains = Object.keys(jmxData);
         for (const d of domains) {
           const domainData = jmxData[d] as unknown;
-          const mBeanData = Object.keys(domainData);
-          for (const mbean of mBeanData) {
-            console.log(mbean);
+          const mBeanDatas = Object.keys(domainData);
+          for (const mbeanData of mBeanDatas) {
+            const mBeanList = domainData[mbeanData] as unknown;
+            const mBeans = Object.keys(mBeanList);
+            for (const mBean of mBeans) {
+              console.log(mBean);
+            }
           }
         }
       }
