@@ -121,7 +121,6 @@ export class JMXCodeLensProvider extends CachedDataProducer implements vscode.Co
           );
         }
         // Status lens
-        const scrapedMetrics = Object.keys(this.jmxData).length;
         this.codeLenses.push(
           new vscode.CodeLens(range, {
             title:
@@ -154,7 +153,7 @@ export class JMXCodeLensProvider extends CachedDataProducer implements vscode.Co
       return;
     }
     // Clear cached data since we're now scraping a different endpoint/file
-    this.cachedData.setJMXData({});
+    this.cachedData.setJMXData("default");
     const scrapeSuccess = await this.JMXscrape();
     if (scrapeSuccess) {
       this.lastScrape = `Last scraped at: ${new Date().toLocaleTimeString()}`;
@@ -233,8 +232,10 @@ export class JMXCodeLensProvider extends CachedDataProducer implements vscode.Co
       const index = this.jmxProcessListNames.indexOf(this.processName);
       this.processId = this.jmxProcessListIds[index];
       await axios.get(javaProcessMBeansURL + this.processId, config).then(res => {
-        this.processJMXData(res.data as unknown);
+        console.log(res.data as string);
+        this.processJMXData(res.data as string);
       });
+      return true;
     } catch (err) {
       console.log(err);
       return false;
@@ -248,8 +249,8 @@ export class JMXCodeLensProvider extends CachedDataProducer implements vscode.Co
    * @param data raw data from a JMX Endpoint
    */
   private processJMXData(data: string) {
-    let scrapedMetrics: Record<string, JMXData>;
-    scrapedMetrics[""] = data;
-    this.cachedData.setJMXData(scrapedMetrics);
+    // let scrapedMetrics: Record<string, unknown>;
+    console.log(data);
+    this.cachedData.setJMXData(data);
   }
 }

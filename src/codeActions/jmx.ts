@@ -47,11 +47,9 @@ export class JMXActionProvider extends CachedDataConsumer implements vscode.Code
 
     // Bail early if different datasource or no scraped data
     if (!/^jmx:/gm.test(document.getText()) || this.jmxData.length === 0) {
-      console.log("HERE");
       return [];
     }
 
-    console.log("THERE");
     const lineText = document.lineAt(range.start.line).text;
     const parentBlocks = getParentBlocks(range.start.line, document.getText());
 
@@ -61,7 +59,6 @@ export class JMXActionProvider extends CachedDataConsumer implements vscode.Code
       parentBlocks[parentBlocks.length - 1] === "subgroups"
     ) {
       if (lineText.includes("metrics:")) {
-        console.log("EVERYWHERE");
         codeActions.push(...this.createMetricInsertions(document, range));
       }
     }
@@ -111,9 +108,10 @@ export class JMXActionProvider extends CachedDataConsumer implements vscode.Code
     const codeActions: vscode.CodeAction[] = [];
 
     // Insert all metrics in one go
+    console.log(this.jmxData);
     const action = this.createInsertAction(
       "Insert JMX Response",
-      String(this.jmxData[this.jmxData.length - 1]),
+      String(this.jmxData),
       document,
       range,
     );
