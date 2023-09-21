@@ -30,7 +30,7 @@ type JMXProcess = {
   name: string;
   id: string;
   agentVersion: string;
-  properties: JMXProperty[];
+  properties: JMXProperty;
 };
 
 type JMXProperty = {
@@ -76,6 +76,12 @@ export class JMXCodeLensProvider extends CachedDataProducer implements vscode.Co
   private jmxProcessListIds: string[] | undefined;
   private processName: string | undefined;
   private processId: string | undefined;
+  private technologyList: Set<string> | undefined;
+  private hostList: Set<string> | undefined;
+  private managementZoneList: Set<string> | undefined;
+  private technologyName: string | undefined;
+  private hostName: string | undefined;
+  private managementZoneName: string | undefined;
   private tenantsTreeViewProvider: EnvironmentsTreeDataProvider | undefined;
   private _onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
   public readonly onDidChangeCodeLenses: vscode.Event<void> = this._onDidChangeCodeLenses.event;
@@ -237,11 +243,61 @@ export class JMXCodeLensProvider extends CachedDataProducer implements vscode.Co
       await axios.get(javaProcessListURL, config).then(res => {
         this.jmxCompleteProcessList = res.data as undefined;
       });
+      this.technologyList = new Set<string>();
+      this.hostList = new Set<string>();
+      this.managementZoneList = new Set<string>();
+      this.jmxCompleteProcessList.list.forEach(element => {
+        element.properties.TECHNOLOGIES.forEach(tech => {
+          this.technologyList.add(tech);
+        });
+        element.properties.MANAGEMENT_ZONES.forEach(mz => {
+          this.managementZoneList.add(mz);
+        });
+        element.properties.HOSTS.forEach(host => {
+          this.hostList.add(host);
+        });
+      });
+      if (this.technologyList.size > 0) {
+        this.technologyName = (await vscode.window.showQuickPick(Array.from(this.technologyList), {
+          title: "Scrape data - Choose your technology",
+          placeHolder: "Select the technology to filter your processes",
+          canPickMany: false,
+          ignoreFocusOut: true,
+        })) as string;
+      }
+      if (this.hostList.size > 0) {
+        this.hostName = (await vscode.window.showQuickPick(Array.from(this.hostList), {
+          title: "Scrape data - Choose your host",
+          placeHolder: "Select the host to filter your processes",
+          canPickMany: false,
+          ignoreFocusOut: true,
+        })) as string;
+      }
+      if (this.managementZoneList.size > 0) {
+        this.managementZoneName = (await vscode.window.showQuickPick(
+          Array.from(this.managementZoneList),
+          {
+            title: "Scrape data - Choose your management zone",
+            placeHolder: "Select the management zone to filter your processes",
+            canPickMany: false,
+            ignoreFocusOut: true,
+          },
+        )) as string;
+      }
       this.jmxProcessListIds = [];
       this.jmxProcessListNames = [];
       this.jmxCompleteProcessList.list.forEach(element => {
-        this.jmxProcessListIds.push(element.id);
-        this.jmxProcessListNames.push(element.name);
+
+        if (
+          (element.properties.HOSTS.includes(this.hostName) || this.hostName === undefined) &&
+          (element.properties.TECHNOLOGIES.includes(this.technologyName) ||
+            this.technologyName === undefined) &&
+          (element.properties.MANAGEMENT_ZONES.includes(this.managementZoneName) ||
+            this.managementZoneName === undefined)
+        ) {
+          this.jmxProcessListIds.push(element.id);
+          this.jmxProcessListNames.push(element.name);
+        }
       });
       this.processName = (await vscode.window.showQuickPick(this.jmxProcessListNames, {
         title: "Scrape data - Choose your process",
@@ -268,7 +324,6 @@ export class JMXCodeLensProvider extends CachedDataProducer implements vscode.Co
    * @param data raw data from a JMX Endpoint
    */
   private processJMXData(data: jmxDataResponse) {
-    console.log(data);
     this.cachedData.setJMXData(data);
   }
 }
