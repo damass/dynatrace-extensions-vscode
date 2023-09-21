@@ -24,21 +24,7 @@ import {
   getJMXMetricKeys,
 } from "../utils/extensionParsing";
 import { getBlockItemIndexAtLine, getParentBlocks } from "../utils/yamlParsing";
-import { buildMetricMetadataSnippet, indentSnippet } from "./utils/snippetBuildingUtils";
-
-/**
- * Splits a metric key on underscore ("_") and puts together all parts with first
- * character in upper case, providing a sort of title.
- * @param metricKey metric key
- * @returns metric key as title case
- */
-function titleCase(metricKey: string): string {
-  return metricKey
-    .toLowerCase()
-    .split("_")
-    .map(part => `${part.charAt(0).toUpperCase()}${part.substring(1)}`)
-    .join(" ");
-}
+import { buildMetricMetadataSnippet, indentJMXSnippet } from "./utils/snippetBuildingUtils";
 
 /**
  * Provider for Code Actions that work with scraped JMX data to automatically
@@ -60,10 +46,12 @@ export class JMXActionProvider extends CachedDataConsumer implements vscode.Code
     const codeActions: vscode.CodeAction[] = [];
 
     // Bail early if different datasource or no scraped data
-    if (!/^jmx:/gm.test(document.getText()) || Object.keys(this.jmxData).length === 0) {
+    if (!/^jmx:/gm.test(document.getText()) || this.jmxData.length === 0) {
+      console.log("HERE");
       return [];
     }
 
+    console.log("THERE");
     const lineText = document.lineAt(range.start.line).text;
     const parentBlocks = getParentBlocks(range.start.line, document.getText());
 
@@ -72,27 +60,11 @@ export class JMXActionProvider extends CachedDataConsumer implements vscode.Code
       parentBlocks[parentBlocks.length - 1] === "jmx" ||
       parentBlocks[parentBlocks.length - 1] === "subgroups"
     ) {
-      // Existing datasource yaml details
-      const groupIdx = getBlockItemIndexAtLine("jmx", range.start.line, document.getText());
-      const subgroupIdx = getBlockItemIndexAtLine(
-        "subgroups",
-        range.start.line,
-        document.getText(),
-      );
-      const metricKeys = getJMXMetricKeys(this.parsedExtension, groupIdx, subgroupIdx);
-      const labelKeys = getJMXLabelKeys(this.parsedExtension, groupIdx, subgroupIdx);
       if (lineText.includes("metrics:")) {
-        codeActions.push(...this.createMetricInsertions(document, range, metricKeys));
-      }
-      if (lineText.includes("dimensions:")) {
-        codeActions.push(...this.createDimensionInsertions(document, range, metricKeys, labelKeys));
+        console.log("EVERYWHERE");
+        codeActions.push(...this.createMetricInsertions(document, range));
       }
     }
-    // Metadata
-    if (lineText.startsWith("metrics:")) {
-      codeActions.push(...this.createMetadataInsertions(document, range, this.parsedExtension));
-    }
-
     return codeActions;
   }
 
@@ -119,7 +91,7 @@ export class JMXActionProvider extends CachedDataConsumer implements vscode.Code
       const insertPosition = new vscode.Position(range.start.line + 1, 0);
       const action = new vscode.CodeAction(actionName, vscode.CodeActionKind.QuickFix);
       action.edit = new vscode.WorkspaceEdit();
-      action.edit.insert(document.uri, insertPosition, indentSnippet(textToInsert, indent));
+      action.edit.insert(document.uri, insertPosition, indentJMXSnippet(textToInsert, indent));
       return action;
     }
   }
@@ -135,167 +107,19 @@ export class JMXActionProvider extends CachedDataConsumer implements vscode.Code
   private createMetricInsertions(
     document: vscode.TextDocument,
     range: vscode.Range,
-    existingKeys: string[],
   ): vscode.CodeAction[] {
     const codeActions: vscode.CodeAction[] = [];
-    const availableKeys = Object.keys(this.jmxData).filter(key => !existingKeys.includes(key));
 
     // Insert all metrics in one go
-    if (availableKeys.length > 1) {
-      const action = this.createInsertAction(
-        "Insert all scraped metrics",
-        availableKeys
-          .map(
-            key =>
-              `- key: ${key}\n  value: metric:${key}\n  type: ${String(this.jmxData[key].type)}`,
-          )
-          .join("\n"),
-        document,
-        range,
-      );
-      if (action) {
-        codeActions.push(action);
-      }
+    const action = this.createInsertAction(
+      "Insert JMX Response",
+      String(this.jmxData[this.jmxData.length - 1]),
+      document,
+      range,
+    );
+    if (action) {
+      codeActions.push(action);
     }
-
-    // Insert individual metrics
-    availableKeys.forEach(key => {
-      const action = this.createInsertAction(
-        `Insert ${key} metric`,
-        `- key: ${key}\n  value: metric:${key}\n  type: ${String(this.jmxData[key].type)}`,
-        document,
-        range,
-      );
-
-      if (action) {
-        codeActions.push(action);
-      }
-    });
-
-    return codeActions;
-  }
-
-  /**
-   * Creates Code Actions for inserting dimensions from scraped JMX data.
-   * Dimensions are filtered by metric keys, so that suggestions apply only to the metrics already
-   * inserted in the YAML. Existing keys should be provided to not duplicate labels already in YAML.
-   * @param document the document that triggered the action provider
-   * @param range the range that triggered the action
-   * @param metricKeys metric keys to use in filtering JMX labels
-   * @param existingKeys keys that have already been inserted in yaml (to be excluded)
-   * @returns list of code actions
-   */
-  private createDimensionInsertions(
-    document: vscode.TextDocument,
-    range: vscode.Range,
-    metricKeys: string[],
-    existingKeys: string[],
-  ): vscode.CodeAction[] {
-    const codeActions: vscode.CodeAction[] = [];
-    const availableKeys: string[] = [];
-    Object.keys(this.jmxData).forEach(key => {
-      const dimensions = this.jmxData[key].dimensions;
-      if (dimensions && dimensions.length > 0) {
-        dimensions.forEach(dimension => {
-          if (
-            (metricKeys.length === 0 || metricKeys.includes(key)) &&
-            !existingKeys.includes(dimension) &&
-            !availableKeys.includes(dimension)
-          ) {
-            availableKeys.push(dimension);
-          }
-        });
-      }
-    });
-    availableKeys.forEach(key => {
-      const action = this.createInsertAction(
-        `Insert ${key} dimension`,
-        `- key: ${key}\n  value: label:${key}`,
-        document,
-        range,
-      );
-      if (action) {
-        codeActions.push(action);
-      }
-    });
-    return codeActions;
-  }
-
-  /**
-   * Creates Code Actions for inserting metric metadata based on scraped JMX data.
-   * Metrics are filtered to only match the ones added in the datasource (not all scraped) and also
-   * ones that don't already have metadata defined (so we don't duplicate).
-   * @param document the document that triggered the action provider
-   * @param range the range that triggered the action
-   * @param extension extension.yaml serialized as object
-   * @returns list of code actions
-   */
-  private createMetadataInsertions(
-    document: vscode.TextDocument,
-    range: vscode.Range,
-    extension: ExtensionStub,
-  ): vscode.CodeAction[] {
-    const codeActions: vscode.CodeAction[] = [];
-    const datasourceMetrics = getAllMetricKeysAndValuesFromDataSource(extension);
-    const metadataMetrics = extension.metrics ? extension.metrics.map(m => m.key) : [];
-
-    const metricsToInsert = datasourceMetrics
-      // Metrics that don't have metadata defined yet...
-      .filter(dsMetric => !metadataMetrics.includes(dsMetric.key))
-      // ... and have jmx-based values...
-      .filter(dsMetric => dsMetric.value.startsWith("metric:"))
-      // ... and have JMX descriptions ...
-      .filter(dsMetric => {
-        const jmxKey = dsMetric.value.split("metric:")[1];
-        return Object.keys(this.jmxData).includes(jmxKey) && this.jmxData[jmxKey].description;
-      });
-
-    // Action for all metrics in one go
-    if (metricsToInsert.length > 1) {
-      const action = this.createInsertAction(
-        "Add metadata for all metrics",
-        metricsToInsert
-          .map(metric => {
-            const promKey = metric.value.split("metric:")[1];
-            return buildMetricMetadataSnippet(
-              metric.key,
-              titleCase(promKey),
-              String(this.jmxData[promKey].description),
-              -2,
-              false,
-            );
-          })
-          .join("\n"),
-        document,
-        range,
-      );
-      if (action) {
-        codeActions.push(action);
-      }
-    }
-
-    // Actions for individual metric metadatas
-    if (metricsToInsert.length > 0) {
-      metricsToInsert.forEach(metric => {
-        const promKey = metric.value.split("metric:")[1];
-        const action = this.createInsertAction(
-          `Add metadata for ${metric.key}`,
-          buildMetricMetadataSnippet(
-            metric.key,
-            titleCase(promKey),
-            String(this.jmxData[promKey].description),
-            -2,
-            false,
-          ),
-          document,
-          range,
-        );
-        if (action) {
-          codeActions.push(action);
-        }
-      });
-    }
-
     return codeActions;
   }
 }

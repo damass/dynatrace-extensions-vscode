@@ -20,33 +20,7 @@ import { EnvironmentsTreeDataProvider } from "../treeViews/environmentsTreeView"
 import { showMessage } from "../utils/code";
 import { CachedData, CachedDataProducer } from "../utils/dataCaching";
 
-type mBeanInfo = {
-  domain?: string;
-  name?: string;
-  data?: mBeanData[];
-};
-
-type mBeanData = {
-  properties?: mBeanProps[];
-  metrics?: mBeanMetrics[];
-  fullpath?: string;
-};
-
-type mBeanProps = {
-  type?: string;
-};
-
-type mBeanMetrics = {
-  name?: string;
-  numeric?: boolean;
-};
-
-export type JMXData = Record<string, JMXDetails>;
-type JMXDetails = {
-  type?: string;
-  dimensions?: string[];
-  description?: string;
-};
+export type JMXData = string;
 
 type JMXProcessList = {
   list: JMXProcess[];
@@ -153,11 +127,11 @@ export class JMXCodeLensProvider extends CachedDataProducer implements vscode.Co
             title:
               this.lastScrape === "N/A"
                 ? this.lastScrape
-                : `${scrapedMetrics} metrics (${this.lastScrape.substring(5)})`,
+                : `JMX Response Successful @ (${this.lastScrape.substring(5)})`,
             tooltip:
               this.lastScrape === "N/A"
                 ? "Data has not been scraped yet."
-                : `${this.lastScrape}. Found ${scrapedMetrics} metrics.`,
+                : `${this.lastScrape}. Response Successful.`,
             command: "",
             arguments: [],
           }),
@@ -273,84 +247,9 @@ export class JMXCodeLensProvider extends CachedDataProducer implements vscode.Co
    * in other parts of the VSCode extension.
    * @param data raw data from a JMX Endpoint
    */
-  private processJMXData(data: unknown) {
-    const scrapedMetrics: JMXData = {};
-    const keys = Object.keys(data);
-    for (const i of keys) {
-      if (i == "jmxData") {
-        const jmxData = data[i] as unknown;
-        const domains = Object.keys(jmxData);
-        for (const d of domains) {
-          console.log("Domain: " + d);
-          const domainData = jmxData[d] as unknown;
-          const mBeanDatas = Object.keys(domainData);
-          for (const mbeanData of mBeanDatas) {
-            const mBeanList = domainData[mbeanData] as unknown;
-            const mBeans = Object.keys(mBeanList);
-            for (const mBean of mBeans) {
-              console.log("mBean: " + mBean);
-              const mBeanIntData = mBeanList[mBean] as unknown;
-              const mBeanIntDataValues = Object.values(mBeanIntData);
-              for (const mBeanIntDataValue of mBeanIntDataValues) {
-                const mBeanIntDataListValues = Object.values(mBeanIntDataValue);
-                for (const mBeanIntDataListValue of mBeanIntDataListValues) {
-                  const mBeanIntDataListValueKeys = Object.keys(mBeanIntDataListValue);
-                  for (const val of mBeanIntDataListValueKeys) {
-                    switch (val) {
-                      case "fullPath": {
-                        const fullPath = mBeanIntDataListValue[val] as string;
-                        console.log("fullPath: " + fullPath);
-                        break;
-                      }
-                      case "properties": {
-                        const mbeanPropKeys = mBeanIntDataListValue[val] as unknown;
-                        const mBeanPropList = Object.keys(mbeanPropKeys);
-                        for (const mBeanProp of mBeanPropList) {
-                          const prop = mbeanPropKeys[mBeanProp] as string;
-                          console.log("Property: " + mBeanProp + "=" + prop);
-                        }
-                        break;
-                      }
-                      case "metrics": {
-                        const mBeanMetricsList = mBeanIntDataListValue[val] as unknown;
-                        const mBeanMetrics = Object.values(mBeanMetricsList);
-                        for (const mBeanMetric of mBeanMetrics) {
-                          const mBeanMetricKeys = Object.keys(mBeanMetric);
-                          for (const mBeanMetricKey of mBeanMetricKeys) {
-                            const mBeanInfoValue = mBeanMetric[mBeanMetricKey] as string;
-                            let name = "" as string;
-                            let numeric;
-                            switch (mBeanMetricKey) {
-                              case "name": {
-                                name = mBeanInfoValue;
-                                console.log("NAME : " + name);
-                                break;
-                              }
-                              case "numeric": {
-                                numeric = mBeanInfoValue;
-                                console.log("Numeric : " + numeric);
-                                break;
-                              }
-                              default: {
-                                break;
-                              }
-                            }
-                          }
-                        }
-                        break;
-                      }
-                      default:
-                        console.log("Default");
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // this.cachedData.setJMXData(scrapedMetrics);
+  private processJMXData(data: string) {
+    let scrapedMetrics: Record<string, JMXData>;
+    scrapedMetrics[""] = data;
+    this.cachedData.setJMXData(scrapedMetrics);
   }
 }

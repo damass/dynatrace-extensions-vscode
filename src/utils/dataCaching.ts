@@ -102,7 +102,7 @@ export class CachedData {
   private baristaIcons = new BehaviorSubject<string[]>([]);
   private selectorStatuses = new BehaviorSubject<Record<string, ValidationStatus | undefined>>({});
   private prometheusData = new BehaviorSubject<PromData>({});
-  private jmxData = new BehaviorSubject<JMXData>({});
+  private jmxData = new BehaviorSubject<Record<string, JMXData | undefined>>({});
   private wmiData = new BehaviorSubject<Record<string, WmiQueryResult | undefined>>({});
   private wmiStatuses = new BehaviorSubject<Record<string, ValidationStatus | undefined>>({});
   private snmpData = new BehaviorSubject<Record<string, OidInformation | undefined>>({});
@@ -319,7 +319,7 @@ export class CachedData {
   /**
    * On demand update of JMX cached data.
    */
-  public setJMXData(data: JMXData) {
+  public setJMXData(data: Record<string, JMXData>) {
     this.jmxData.next(data);
   }
 

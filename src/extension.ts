@@ -685,6 +685,10 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.languages.registerCodeActionsProvider(extension2selector, snippetCodeActionProvider, {
       providedCodeActionKinds: [vscode.CodeActionKind.QuickFix],
     }),
+    // Code actions for JMX data
+    vscode.languages.registerCodeActionsProvider(extension2selector, jmxActionProvider, {
+      providedCodeActionKinds: [vscode.CodeActionKind.QuickFix],
+    }),
     // Code actions for Prometheus data
     vscode.languages.registerCodeActionsProvider(extension2selector, prometheusActionProvider, {
       providedCodeActionKinds: [vscode.CodeActionKind.QuickFix],

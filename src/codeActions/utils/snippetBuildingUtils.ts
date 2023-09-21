@@ -57,6 +57,17 @@ export function indentSnippet(
   return snippet;
 }
 
+export function indentJMXSnippet(
+  snippet: string,
+  indent: number,
+  withNewline: boolean = true,
+): string {
+  if (withNewline) {
+    snippet += "\n";
+  }
+  return snippet;
+}
+
 /**
  * Turns text into a "slug" representation.
  * @param text
