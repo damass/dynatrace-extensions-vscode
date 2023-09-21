@@ -232,7 +232,6 @@ export class JMXCodeLensProvider extends CachedDataProducer implements vscode.Co
       const index = this.jmxProcessListNames.indexOf(this.processName);
       this.processId = this.jmxProcessListIds[index];
       await axios.get(javaProcessMBeansURL + this.processId, config).then(res => {
-        console.log(res.data as string);
         this.processJMXData(res.data as string);
       });
       return true;
@@ -248,8 +247,7 @@ export class JMXCodeLensProvider extends CachedDataProducer implements vscode.Co
    * in other parts of the VSCode extension.
    * @param data raw data from a JMX Endpoint
    */
-  private processJMXData(data: string) {
-    // let scrapedMetrics: Record<string, unknown>;
+  private processJMXData(data: JMXData) {
     console.log(data);
     this.cachedData.setJMXData(data);
   }

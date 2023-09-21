@@ -108,10 +108,9 @@ export class JMXActionProvider extends CachedDataConsumer implements vscode.Code
     const codeActions: vscode.CodeAction[] = [];
 
     // Insert all metrics in one go
-    console.log(this.jmxData);
     const action = this.createInsertAction(
       "Insert JMX Response",
-      String(this.jmxData),
+      JSON.stringify(this.jmxData),
       document,
       range,
     );
