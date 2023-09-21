@@ -47,7 +47,7 @@ export class JMXActionProvider extends CachedDataConsumer implements vscode.Code
     const codeActions: vscode.CodeAction[] = [];
 
     // Bail early if different datasource or no scraped data
-    if (!/^jmx:/gm.test(document.getText()) || this.jmxData.length === 0) {
+    if (!/^jmx:/gm.test(document.getText()) || !this.jmxData) {
       return [];
     }
 
@@ -55,11 +55,8 @@ export class JMXActionProvider extends CachedDataConsumer implements vscode.Code
     const parentBlocks = getParentBlocks(range.start.line, document.getText());
 
     // Metrics and dimensions
-    if (
-      parentBlocks[parentBlocks.length - 1] === "jmx" ||
-      parentBlocks[parentBlocks.length - 1] === "subgroups"
-    ) {
-      if (lineText.includes("query:")) {
+    if (parentBlocks[parentBlocks.length - 1] === "jmx") {
+      if (lineText.includes("groups:")) {
         codeActions.push(...this.createQueryInsertions(document, range));
       }
     }
@@ -108,12 +105,105 @@ export class JMXActionProvider extends CachedDataConsumer implements vscode.Code
   ): vscode.CodeAction[] {
     const codeActions: vscode.CodeAction[] = [];
 
-    let yamlString = "";
+    let groupCount = 0;
+    let subgroupCount = 0;
+    let yamlString = "  - group: group_" + groupCount.toString() + "\n";
+    yamlString += "    subgroups: \n";
     const jmxJSON = JSON.parse(JSON.stringify(this.jmxData)) as jmxDataResponse;
     for (const [domain, domainValue] of Object.entries(jmxJSON.jmxData)) {
       for (const [mbean, mbeanValue] of Object.entries(jmxJSON.jmxData[domain].data)) {
         for (const element of jmxJSON.jmxData[domain].data[mbean].data) {
-          yamlString += "- query:" + element.fullPath + "\n";
+          if (subgroupCount < 10) {
+            yamlString +=
+              "       - subgroup: " +
+              element.fullPath +
+              "\n" +
+              "         query: " +
+              element.fullPath +
+              "\n" +
+              "         dimensions : \n";
+            for (const [key, value] of Object.entries(element.properties)) {
+              yamlString += "          - key: " + key.toLowerCase() + "\n";
+              yamlString += "            value: property:" + value + "\n";
+            }
+            for (const metric of element.metrics) {
+              if (!metric.numeric) {
+                yamlString += "          - key: " + metric.name.toLowerCase() + "\n";
+                yamlString += "            value: attribute:" + metric.name + "\n";
+              }
+            }
+            yamlString += "         metrics: \n";
+            let hasMetric = false as boolean;
+            for (const metric of element.metrics) {
+              if (metric.numeric) {
+                hasMetric = true;
+                const metricKey = this.ConvertMetricKey(element.fullPath);
+                let trueMetricKey = metricKey + metric.name.toLowerCase();
+                if (trueMetricKey.length > 250) {
+                  const metricKeyLength = metric.name.toLowerCase().length;
+                  const trueSize = 249 - metricKeyLength;
+                  trueMetricKey = metricKey.slice(0, trueSize);
+                  trueMetricKey += "." + metric.name.toLowerCase();
+                }
+                yamlString += "          - key: " + trueMetricKey + "\n";
+                yamlString += "            type: gauge \n";
+                yamlString += "            value: attribute:" + metric.name + "\n";
+              }
+            }
+            if (!hasMetric) {
+              yamlString += "          - key: jmx.const.value \n";
+              yamlString += "            type: gauge \n";
+              yamlString += "            value: const:1 \n";
+            }
+            subgroupCount += 1;
+          } else {
+            groupCount += 1;
+            subgroupCount = 0;
+            yamlString += "  - group: group_" + groupCount.toString() + "\n";
+            yamlString += "    subgroups: \n";
+            yamlString +=
+              "       - subgroup: " +
+              element.fullPath +
+              "\n" +
+              "         query: " +
+              element.fullPath +
+              "\n" +
+              "         dimensions : \n";
+            for (const [key, value] of Object.entries(element.properties)) {
+              yamlString += "          - key: " + key.toLowerCase() + "\n";
+              yamlString += "            value: property:" + value + "\n";
+            }
+            for (const metric of element.metrics) {
+              if (!metric.numeric) {
+                yamlString += "          - key: " + metric.name.toLowerCase() + "\n";
+                yamlString += "            value: attribute:" + metric.name + "\n";
+              }
+            }
+            yamlString += "         metrics: \n";
+            let hasMetric = false as boolean;
+            for (const metric of element.metrics) {
+              if (metric.numeric) {
+                hasMetric = true;
+                const metricKey = this.ConvertMetricKey(element.fullPath);
+                let trueMetricKey = metricKey + metric.name.toLowerCase();
+                if (trueMetricKey.length > 250) {
+                  const metricKeyLength = metric.name.toLowerCase().length;
+                  const trueSize = 249 - metricKeyLength;
+                  trueMetricKey = metricKey.slice(0, trueSize);
+                  trueMetricKey += "." + metric.name.toLowerCase();
+                }
+                yamlString += "          - key: " + trueMetricKey + "\n";
+                yamlString += "            type: gauge \n";
+                yamlString += "            value: attribute:" + metric.name + "\n";
+              }
+            }
+            if (!hasMetric) {
+              yamlString += "          - key: jmx.const.value \n";
+              yamlString += "            type: gauge \n";
+              yamlString += "            value: const:1 \n";
+            }
+            subgroupCount += 1;
+          }
         }
       }
     }
@@ -123,5 +213,16 @@ export class JMXActionProvider extends CachedDataConsumer implements vscode.Code
       codeActions.push(action);
     }
     return codeActions;
+  }
+
+  private ConvertMetricKey(fullPath: string): string {
+    let metricKey: string;
+
+    metricKey = fullPath.replace(/[:|,]/g, ".");
+    metricKey = metricKey.replace(/[=| ]/g, "_");
+    metricKey = metricKey.replace(/[^a-zA-Z0-9_.]/g, "");
+    metricKey += ".";
+
+    return metricKey;
   }
 }
