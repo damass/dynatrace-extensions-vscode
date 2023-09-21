@@ -40,6 +40,26 @@ type JMXProperty = {
   MANAGEMENT_ZONES: string[];
 };
 
+export type jmxDataResponse = {
+  message: string;
+  status: string;
+  jmxData: Record<string, domainData>;
+};
+
+type domainData = {
+  data: Record<string, mbeanData>;
+};
+
+type mbeanData = {
+  data: mbeanDataSub[];
+};
+
+type mbeanDataSub = {
+  properties: Record<string, string>;
+  metrics: { name: string; numeric: boolean }[];
+  fullPath: string;
+};
+
 /**
  * Code Lens Provider implementation to facilitate loading JMX metrics and data
  * from an external endpoint and leveraging it in other parts of the extension.
@@ -153,7 +173,7 @@ export class JMXCodeLensProvider extends CachedDataProducer implements vscode.Co
       return;
     }
     // Clear cached data since we're now scraping a different endpoint/file
-    this.cachedData.setJMXData("default");
+    this.cachedData.setJMXData(undefined);
     const scrapeSuccess = await this.JMXscrape();
     if (scrapeSuccess) {
       this.lastScrape = `Last scraped at: ${new Date().toLocaleTimeString()}`;
@@ -232,7 +252,7 @@ export class JMXCodeLensProvider extends CachedDataProducer implements vscode.Co
       const index = this.jmxProcessListNames.indexOf(this.processName);
       this.processId = this.jmxProcessListIds[index];
       await axios.get(javaProcessMBeansURL + this.processId, config).then(res => {
-        this.processJMXData(res.data as string);
+        this.processJMXData(res.data as jmxDataResponse);
       });
       return true;
     } catch (err) {
@@ -247,7 +267,7 @@ export class JMXCodeLensProvider extends CachedDataProducer implements vscode.Co
    * in other parts of the VSCode extension.
    * @param data raw data from a JMX Endpoint
    */
-  private processJMXData(data: JMXData) {
+  private processJMXData(data: jmxDataResponse) {
     console.log(data);
     this.cachedData.setJMXData(data);
   }

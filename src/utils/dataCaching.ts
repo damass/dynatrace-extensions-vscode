@@ -24,7 +24,7 @@ import Axios from "axios";
 import { BehaviorSubject, Observable, switchMap, of, delay, map } from "rxjs";
 import * as vscode from "vscode";
 import * as yaml from "yaml";
-import { JMXData } from "../codeLens/jmxScraper";
+import { jmxDataResponse } from "../codeLens/jmxScraper";
 import { PromData } from "../codeLens/prometheusScraper";
 import { ValidationStatus } from "../codeLens/utils/selectorUtils";
 import { WmiQueryResult } from "../codeLens/utils/wmiUtils";
@@ -56,7 +56,7 @@ export class CachedDataConsumer {
   protected builtinEntityTypes: EntityType[] = undefined;
   protected baristaIcons: string[] = undefined;
   protected parsedExtension: ExtensionStub = undefined;
-  protected jmxData: JMXData = undefined;
+  protected jmxData: jmxDataResponse = undefined;
   protected prometheusData: PromData = undefined;
   protected wmiData: Record<string, WmiQueryResult | undefined> = undefined;
   protected wmiStatuses: Record<string, ValidationStatus | undefined> = undefined;
@@ -102,7 +102,7 @@ export class CachedData {
   private baristaIcons = new BehaviorSubject<string[]>([]);
   private selectorStatuses = new BehaviorSubject<Record<string, ValidationStatus | undefined>>({});
   private prometheusData = new BehaviorSubject<PromData>({});
-  private jmxData = new BehaviorSubject<JMXData>("default");
+  private jmxData = new BehaviorSubject<jmxDataResponse>(undefined);
   private wmiData = new BehaviorSubject<Record<string, WmiQueryResult | undefined>>({});
   private wmiStatuses = new BehaviorSubject<Record<string, ValidationStatus | undefined>>({});
   private snmpData = new BehaviorSubject<Record<string, OidInformation | undefined>>({});
@@ -319,7 +319,7 @@ export class CachedData {
   /**
    * On demand update of JMX cached data.
    */
-  public setJMXData(data: JMXData) {
+  public setJMXData(data: jmxDataResponse) {
     this.jmxData.next(data);
   }
 

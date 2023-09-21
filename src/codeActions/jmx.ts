@@ -15,6 +15,7 @@
  */
 
 import * as vscode from "vscode";
+import { jmxDataResponse } from "../codeLens/jmxScraper";
 import { ExtensionStub } from "../interfaces/extensionMeta";
 import { CachedDataConsumer } from "../utils/dataCaching";
 
@@ -25,26 +26,6 @@ import {
 } from "../utils/extensionParsing";
 import { getBlockItemIndexAtLine, getParentBlocks } from "../utils/yamlParsing";
 import { buildMetricMetadataSnippet, indentJMXSnippet } from "./utils/snippetBuildingUtils";
-
-type jmxDataResponse = {
-  message: string;
-  status: string;
-  jmxData: Record<string, domainData>;
-};
-
-type domainData = {
-  data: Record<string, mbeanData>;
-};
-
-type mbeanData = {
-  data: mbeanDataSub[];
-};
-
-type mbeanDataSub = {
-  properties: Record<string, string>;
-  metrics: { name: string; numeric: boolean }[];
-  fullPath: string;
-};
 
 /**
  * Provider for Code Actions that work with scraped JMX data to automatically
