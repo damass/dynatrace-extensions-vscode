@@ -26,6 +26,26 @@ import {
 import { getBlockItemIndexAtLine, getParentBlocks } from "../utils/yamlParsing";
 import { buildMetricMetadataSnippet, indentJMXSnippet } from "./utils/snippetBuildingUtils";
 
+type jmxDataResponse = {
+  message: string;
+  status: string;
+  jmxData: Record<string, domainData>;
+};
+
+type domainData = {
+  data: Record<string, mbeanData>;
+};
+
+type mbeanData = {
+  data: mbeanDataSub[];
+};
+
+type mbeanDataSub = {
+  properties: Record<string, string>;
+  metrics: { name: string; numeric: boolean }[];
+  fullPath: string;
+};
+
 /**
  * Provider for Code Actions that work with scraped JMX data to automatically
  * insert it in the Extension yaml.
@@ -101,41 +121,21 @@ export class JMXActionProvider extends CachedDataConsumer implements vscode.Code
    * @param existingKeys keys that have already been inserted in yaml (to be excluded)
    * @returns list of code actions
    */
-  private createMetricInsertions(
-    document: vscode.TextDocument,
-    range: vscode.Range,
-  ): vscode.CodeAction[] {
-    const codeActions: vscode.CodeAction[] = [];
-
-    // Insert all metrics in one go
-    const action = this.createInsertAction(
-      "Insert JMX Response",
-      JSON.stringify(this.jmxData),
-      document,
-      range,
-    );
-    if (action) {
-      codeActions.push(action);
-    }
-    return codeActions;
-  }
-
-  /**
-   * Creates Code Actions for inserting metrics from scraped JMX data.
-   * Actions are created for individual metrics as well as all-in-one.
-   * @param document the document that triggered the action provider
-   * @param range the range that triggered the action
-   * @param existingKeys keys that have already been inserted in yaml (to be excluded)
-   * @returns list of code actions
-   */
   private createQueryInsertions(
     document: vscode.TextDocument,
     range: vscode.Range,
   ): vscode.CodeAction[] {
     const codeActions: vscode.CodeAction[] = [];
 
-    const yamlString = "";
-
+    let yamlString = "";
+    const jmxJSON = JSON.parse(JSON.stringify(this.jmxData)) as jmxDataResponse;
+    for (const [domain, domainValue] of Object.entries(jmxJSON.jmxData)) {
+      for (const [mbean, mbeanValue] of Object.entries(jmxJSON.jmxData[domain].data)) {
+        for (const element of jmxJSON.jmxData[domain].data[mbean].data) {
+          yamlString += "- query:" + element.fullPath + "\n";
+        }
+      }
+    }
     // Insert all metrics in one go
     const action = this.createInsertAction("Insert JMX Query", yamlString, document, range);
     if (action) {
