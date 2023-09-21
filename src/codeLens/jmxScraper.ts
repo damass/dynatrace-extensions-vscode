@@ -47,8 +47,24 @@ type JMXDetails = {
   dimensions?: string[];
   description?: string;
 };
-type JMXAuth = "No authentication" | "Bearer token" | "Username & password" | "AWS key";
-type ScrapingMethod = "Endpoint" | "File";
+
+type JMXProcessList = {
+  list: JMXProcess[];
+};
+
+type JMXProcess = {
+  name: string;
+  id: string;
+  agentVersion: string;
+  properties: JMXProperty[];
+};
+
+type JMXProperty = {
+  TECHNOLOGIES: string[];
+  HOSTS: string[];
+  PROCESS_GROUPS: string[];
+  MANAGEMENT_ZONES: string[];
+};
 
 /**
  * Code Lens Provider implementation to facilitate loading JMX metrics and data
@@ -58,12 +74,14 @@ export class JMXCodeLensProvider extends CachedDataProducer implements vscode.Co
   private codeLenses: vscode.CodeLens[];
   private regex: RegExp;
   private lastScrape = "N/A";
-  private method: ScrapingMethod | undefined;
-  private jmxUrl: string | undefined;
-  private jmxAuth: JMXAuth | undefined;
-  private jmxToken: string | undefined;
-  private jmxUsername: string | undefined;
-  private jmxPassword: string | undefined;
+  private jmxSRVCookie: string | undefined;
+  private jmxCsrftoken: string | undefined;
+  private jmxapmsessionidCookie: string | undefined;
+  private jmxCompleteProcessList: JMXProcessList | undefined;
+  private jmxProcessListNames: string[] | undefined;
+  private jmxProcessListIds: string[] | undefined;
+  private processName: string | undefined;
+  private processId: string | undefined;
   private tenantsTreeViewProvider: EnvironmentsTreeDataProvider | undefined;
   private _onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
   public readonly onDidChangeCodeLenses: vscode.Event<void> = this._onDidChangeCodeLenses.event;
@@ -157,15 +175,12 @@ export class JMXCodeLensProvider extends CachedDataProducer implements vscode.Co
    * @returns void
    */
   private async scrapeJMXMetrics(changeConfig: boolean = false) {
-    // Only collect details if none are available
-    if (!this.jmxUrl || changeConfig) {
-      const details = await this.collectJMXScrapingDetails();
-      if (!details) {
-        return;
-      }
-      // Clear cached data since we're now scraping a different endpoint/file
-      this.cachedData.setJMXData({});
+    const details = await this.collectJMXScrapingDetails();
+    if (!details) {
+      return;
     }
+    // Clear cached data since we're now scraping a different endpoint/file
+    this.cachedData.setJMXData({});
     const scrapeSuccess = await this.JMXscrape();
     if (scrapeSuccess) {
       this.lastScrape = `Last scraped at: ${new Date().toLocaleTimeString()}`;
@@ -179,62 +194,28 @@ export class JMXCodeLensProvider extends CachedDataProducer implements vscode.Co
    * @returns whether data collection was successful (i.e. mandatory details collected) or not
    */
   private async collectJMXScrapingDetails(): Promise<boolean> {
-    // Endpoint URL
-    this.method = (await vscode.window.showQuickPick(["Endpoint"], {
-      title: "Scrape data - method selection",
-      placeHolder: "Select your scraping method",
-      canPickMany: false,
+    this.jmxCsrftoken = await vscode.window.showInputBox({
+      title: "Scrape data - X-Csrftoken",
+      placeHolder: "Enter a valid X-Csrftoken of an authenticated Dynatrace session",
+      prompt: "Mandatory",
       ignoreFocusOut: true,
-    })) as ScrapingMethod;
-    switch (this.method) {
-      case "Endpoint":
-        this.jmxUrl = await vscode.window.showInputBox({
-          title: "Scrape data - endpoint URL",
-          placeHolder: "Enter your full metrics endpoint URL",
-          prompt: "Mandatory",
-          ignoreFocusOut: true,
-        });
-        if (!this.jmxUrl) {
-          return false;
-        }
-        // Endpoint connectivity scheme
-        this.jmxAuth = (await vscode.window.showQuickPick(
-          ["No authentication", "Username & password"],
-          {
-            title: "Scrape data - endpoint authentication",
-            placeHolder: "Select your endpoint's authentication scheme",
-            canPickMany: false,
-            ignoreFocusOut: true,
-          },
-        )) as JMXAuth;
-        // Endpoint authentication details
-        switch (this.jmxAuth) {
-          case "No authentication":
-            return true;
-          case "Username & password":
-            this.jmxUsername = await vscode.window.showInputBox({
-              title: "Scrape data - endpoint authentication",
-              placeHolder: "Enter the username to use for authentication",
-              prompt: "Mandatory",
-              ignoreFocusOut: true,
-            });
-            this.jmxPassword = await vscode.window.showInputBox({
-              title: "Scrape data - endpoint authentication",
-              placeHolder: "Enter the password to use for authentication",
-              prompt: "Mandatory",
-              ignoreFocusOut: true,
-              password: true,
-            });
-            if (!this.jmxUsername || !this.jmxPassword) {
-              return false;
-            }
-            return true;
-          default:
-            return false;
-        }
-      default:
-        return false;
+    });
+    this.jmxSRVCookie = await vscode.window.showInputBox({
+      title: "Scrape data - SRV Cookie",
+      placeHolder: "Enter a valid SRV Cookie of an authenticated Dynatrace session",
+      prompt: "Mandatory",
+      ignoreFocusOut: true,
+    });
+    this.jmxapmsessionidCookie = await vscode.window.showInputBox({
+      title: "Scrape data - apmsessionid",
+      placeHolder: "Enter a valid apmsessionid of an authenticated Dynatrace session",
+      prompt: "Mandatory",
+      ignoreFocusOut: true,
+    });
+    if (!this.jmxCsrftoken || !this.jmxSRVCookie || !this.jmxapmsessionidCookie) {
+      return false;
     }
+    return true;
   }
 
   /**
@@ -243,34 +224,43 @@ export class JMXCodeLensProvider extends CachedDataProducer implements vscode.Co
    * @returns whether scraping was successful (any errors) or not
    */
   private async JMXscrape() {
-    if (!this.jmxUrl) {
+    if (!this.jmxCsrftoken || !this.jmxSRVCookie || !this.jmxapmsessionidCookie) {
       return false;
     }
     try {
-      switch (this.method) {
-        case "Endpoint":
-          switch (this.jmxAuth) {
-            case "No authentication":
-              await axios.get(this.jmxUrl).then(res => {
-                this.processJMXData(res.data as unknown);
-              });
-              return true;
-            case "Username & password":
-              if (!this.jmxUsername || !this.jmxPassword) {
-                return false;
-              }
-              await axios
-                .get(this.jmxUrl, {
-                  auth: { username: this.jmxUsername, password: this.jmxPassword },
-                })
-                .then(res => {
-                  this.processJMXData(res.data as unknown);
-                });
-              return true;
-            default:
-              return false;
-          }
-      }
+      const environmentURL = (await this.tenantsTreeViewProvider.getCurrentEnvironment()).url;
+      const javaProcessListURL =
+        environmentURL + "/rest/configuration/extensioncreator/jmx/processlist";
+      const javaProcessMBeansURL =
+        environmentURL + "/rest/configuration/extensioncreator/jmx/processdata/";
+      const config = {
+        headers: {
+          "X-Csrftoken": this.jmxCsrftoken,
+          "Cookie":
+            "SRV=" + this.jmxSRVCookie + ";apmsessionid=" + this.jmxapmsessionidCookie + ";",
+          "Accept": "application/json; charset=utf-8,text/plain; charset=utf-8,*/*",
+        },
+      };
+      await axios.get(javaProcessListURL, config).then(res => {
+        this.jmxCompleteProcessList = res.data as undefined;
+      });
+      this.jmxProcessListIds = [];
+      this.jmxProcessListNames = [];
+      this.jmxCompleteProcessList.list.forEach(element => {
+        this.jmxProcessListIds.push(element.id);
+        this.jmxProcessListNames.push(element.name);
+      });
+      this.processName = (await vscode.window.showQuickPick(this.jmxProcessListNames, {
+        title: "Scrape data - Choose your process",
+        placeHolder: "Select the process to scrape its MBeans",
+        canPickMany: false,
+        ignoreFocusOut: true,
+      })) as string;
+      const index = this.jmxProcessListNames.indexOf(this.processName);
+      this.processId = this.jmxProcessListIds[index];
+      await axios.get(javaProcessMBeansURL + this.processId, config).then(res => {
+        this.processJMXData(res.data as unknown);
+      });
     } catch (err) {
       console.log(err);
       return false;
