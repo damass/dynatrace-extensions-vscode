@@ -58,8 +58,8 @@ export class JMXActionProvider extends CachedDataConsumer implements vscode.Code
       parentBlocks[parentBlocks.length - 1] === "jmx" ||
       parentBlocks[parentBlocks.length - 1] === "subgroups"
     ) {
-      if (lineText.includes("metrics:")) {
-        codeActions.push(...this.createMetricInsertions(document, range));
+      if (lineText.includes("query:")) {
+        codeActions.push(...this.createQueryInsertions(document, range));
       }
     }
     return codeActions;
@@ -114,6 +114,30 @@ export class JMXActionProvider extends CachedDataConsumer implements vscode.Code
       document,
       range,
     );
+    if (action) {
+      codeActions.push(action);
+    }
+    return codeActions;
+  }
+
+  /**
+   * Creates Code Actions for inserting metrics from scraped JMX data.
+   * Actions are created for individual metrics as well as all-in-one.
+   * @param document the document that triggered the action provider
+   * @param range the range that triggered the action
+   * @param existingKeys keys that have already been inserted in yaml (to be excluded)
+   * @returns list of code actions
+   */
+  private createQueryInsertions(
+    document: vscode.TextDocument,
+    range: vscode.Range,
+  ): vscode.CodeAction[] {
+    const codeActions: vscode.CodeAction[] = [];
+
+    const yamlString = "";
+
+    // Insert all metrics in one go
+    const action = this.createInsertAction("Insert JMX Query", yamlString, document, range);
     if (action) {
       codeActions.push(action);
     }
