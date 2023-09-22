@@ -136,7 +136,7 @@ export class CachedData {
      @returns "parsedExtension" => {@link ExtensionStub}
      @returns "baristaIcons" => string[]
      @returns "prometheusData" => {@link PromData}
-     @returns "jmxData" => {@link JMXData}
+     @returns "jmxData" => Record<string, {@link jmxDataResponse}>
      @returns "wmiData" => Record<string, {@link WmiQueryResult}>
      @returns "wmiStatuses" => Record<string, {@link ValidationStatus}>
      @returns "entityInstances" => Record<string, {@link Entity}[]>

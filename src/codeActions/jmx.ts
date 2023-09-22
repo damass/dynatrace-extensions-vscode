@@ -55,10 +55,8 @@ export class JMXActionProvider extends CachedDataConsumer implements vscode.Code
     const parentBlocks = getParentBlocks(range.start.line, document.getText());
 
     // Metrics and dimensions
-    if (parentBlocks[parentBlocks.length - 1] === "jmx") {
-      if (lineText.includes("groups:")) {
-        codeActions.push(...this.createQueryInsertions(document, range));
-      }
+    if (lineText.includes("jmx:")) {
+      codeActions.push(...this.createQueryInsertions(document, range));
     }
     return codeActions;
   }
@@ -107,7 +105,7 @@ export class JMXActionProvider extends CachedDataConsumer implements vscode.Code
 
     let groupCount = 0;
     let subgroupCount = 0;
-    let yamlString = "  - group: group_" + groupCount.toString() + "\n";
+    let yamlString = "  groups:\n  - group: group_" + groupCount.toString() + "\n";
     yamlString += "    subgroups: \n";
     const jmxJSON = JSON.parse(JSON.stringify(this.jmxData)) as jmxDataResponse;
     for (const [domain, domainValue] of Object.entries(jmxJSON.jmxData)) {
@@ -119,12 +117,12 @@ export class JMXActionProvider extends CachedDataConsumer implements vscode.Code
               element.fullPath +
               "\n" +
               "         query: " +
-              element.fullPath +
+              this.formatQuery(element.fullPath) +
               "\n" +
-              "         dimensions : \n";
+              "         dimensions: \n";
             for (const [key, value] of Object.entries(element.properties)) {
               yamlString += "          - key: " + key.toLowerCase() + "\n";
-              yamlString += "            value: property:" + value + "\n";
+              yamlString += "            value: property:" + key + "\n";
             }
             for (const metric of element.metrics) {
               if (!metric.numeric) {
@@ -166,12 +164,12 @@ export class JMXActionProvider extends CachedDataConsumer implements vscode.Code
               element.fullPath +
               "\n" +
               "         query: " +
-              element.fullPath +
+              this.formatQuery(element.fullPath) +
               "\n" +
               "         dimensions : \n";
             for (const [key, value] of Object.entries(element.properties)) {
               yamlString += "          - key: " + key.toLowerCase() + "\n";
-              yamlString += "            value: property:" + value + "\n";
+              yamlString += "            value: property:" + key + "\n";
             }
             for (const metric of element.metrics) {
               if (!metric.numeric) {
@@ -208,7 +206,12 @@ export class JMXActionProvider extends CachedDataConsumer implements vscode.Code
       }
     }
     // Insert all metrics in one go
-    const action = this.createInsertAction("Insert JMX Query", yamlString, document, range);
+    const action = this.createInsertAction(
+      `Insert JMX data for ${this.jmxData.process_name ?? ""}`,
+      yamlString,
+      document,
+      range,
+    );
     if (action) {
       codeActions.push(action);
     }
@@ -224,5 +227,16 @@ export class JMXActionProvider extends CachedDataConsumer implements vscode.Code
     metricKey += ".";
 
     return metricKey;
+  }
+
+  private formatQuery(fullPath: string): string {
+    let query: string;
+
+    query = fullPath.replace(/=,/g, "=*,");
+    if (query.endsWith("=")) {
+      query += "*";
+    }
+
+    return query;
   }
 }

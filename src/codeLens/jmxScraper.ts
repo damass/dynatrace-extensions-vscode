@@ -41,6 +41,7 @@ type JMXProperty = {
 };
 
 export type jmxDataResponse = {
+  process_name?: string;
   message: string;
   status: string;
   jmxData: Record<string, domainData>;
@@ -250,12 +251,6 @@ export class JMXCodeLensProvider extends CachedDataProducer implements vscode.Co
         element.properties.TECHNOLOGIES.forEach(tech => {
           this.technologyList.add(tech);
         });
-        element.properties.MANAGEMENT_ZONES.forEach(mz => {
-          this.managementZoneList.add(mz);
-        });
-        element.properties.HOSTS.forEach(host => {
-          this.hostList.add(host);
-        });
       });
       if (this.technologyList.size > 0) {
         this.technologyName = (await vscode.window.showQuickPick(Array.from(this.technologyList), {
@@ -265,6 +260,15 @@ export class JMXCodeLensProvider extends CachedDataProducer implements vscode.Co
           ignoreFocusOut: true,
         })) as string;
       }
+      this.jmxCompleteProcessList.list.forEach(element => {
+        if (
+          element.properties.TECHNOLOGIES.includes(this.technologyName) ||
+          this.technologyName === undefined
+        )
+          element.properties.HOSTS.forEach(host => {
+            this.hostList.add(host);
+          });
+      });
       if (this.hostList.size > 0) {
         this.hostName = (await vscode.window.showQuickPick(Array.from(this.hostList), {
           title: "Scrape data - Choose your host",
@@ -273,6 +277,17 @@ export class JMXCodeLensProvider extends CachedDataProducer implements vscode.Co
           ignoreFocusOut: true,
         })) as string;
       }
+      this.jmxCompleteProcessList.list.forEach(element => {
+        if (
+          (element.properties.TECHNOLOGIES.includes(this.technologyName) ||
+            this.technologyName === undefined) &&
+          (element.properties.HOSTS.includes(this.hostName) || this.hostName === undefined)
+        ) {
+          element.properties.MANAGEMENT_ZONES.forEach(mz => {
+            this.managementZoneList.add(mz);
+          });
+        }
+      });
       if (this.managementZoneList.size > 0) {
         this.managementZoneName = (await vscode.window.showQuickPick(
           Array.from(this.managementZoneList),
@@ -287,7 +302,6 @@ export class JMXCodeLensProvider extends CachedDataProducer implements vscode.Co
       this.jmxProcessListIds = [];
       this.jmxProcessListNames = [];
       this.jmxCompleteProcessList.list.forEach(element => {
-
         if (
           (element.properties.HOSTS.includes(this.hostName) || this.hostName === undefined) &&
           (element.properties.TECHNOLOGIES.includes(this.technologyName) ||
@@ -324,6 +338,7 @@ export class JMXCodeLensProvider extends CachedDataProducer implements vscode.Co
    * @param data raw data from a JMX Endpoint
    */
   private processJMXData(data: jmxDataResponse) {
+    data.process_name = this.processName;
     this.cachedData.setJMXData(data);
   }
 }
